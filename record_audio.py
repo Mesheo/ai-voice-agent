@@ -13,7 +13,6 @@ class AudioHandler:
         self.pyaudio = pyaudio.PyAudio()
 
     def record(self, seconds):
-        """Record audio for the specified number of seconds."""
         print(f"Recording for {seconds} seconds...")
         
         stream = self.pyaudio.open(
@@ -24,14 +23,10 @@ class AudioHandler:
             input=True
         )
 
-        # Each chunk is a group of samples collected over a short time.
-        # Since we're recording in mono, one sample = one value.
-        # So each chunk contains 1024 samples, and we collect multiple chunks per second.
         frame_chunks = []  
         
         total_chunks_per_duration = int( (self.sample_rate * seconds) / self.sample_chunk_size )
         for i in range(total_chunks_per_duration):
-            print(i)
             data = stream.read(self.sample_chunk_size)
             frame_chunks.append(data)
 
@@ -39,56 +34,59 @@ class AudioHandler:
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
-        """
-        We are basically saying to pyaudio: record to me 44100 samples in a second, every sample being 16bits in size,
-        and return this data in chunks of 1024 samples        
-        """
         stream.stop_stream()
         stream.close()
         print("\nFinished recording")
 
         # Save the recorded data as a WAV file
-        wf = wave.open(self.output_filename, 'wb')
-        wf.setnchannels(self.channels)
-        wf.setsampwidth(self.pyaudio.get_sample_size(self.sample_format))
-        wf.setframerate(self.sample_rate)
-        wf.writeframes(b''.join(frame_chunks))
-        wf.close()
-        
+        with wave.open(self.output_filename, 'wb') as wf:
+            wf.setnchannels(self.channels)
+            wf.setsampwidth(self.pyaudio.get_sample_size(self.sample_format))
+            wf.setframerate(self.sample_rate)
+            wf.writeframes(b''.join(frame_chunks))
+
         print(f"Recording saved as {self.output_filename}")
+    
+    def cleanup(self):
+        self.pyaudio.terminate()
 
     def play(self):
-        """Play back the recorded audio file."""
         if not os.path.exists(self.output_filename):
             print(f"Error: {self.output_filename} not found.")
             return
 
         print(f"Playing back {self.output_filename}...")
         
-        # Open the sound file
+        # Abrir o arquivo WAV
         wf = wave.open(self.output_filename, 'rb')
         
-        # Create a stream for playback
+        # Criação do fluxo para reprodução
         stream = self.pyaudio.open(
-            format=self.pyaudio.get_format_from_width(wf.getsampwidth()),
+            format=self.pyaudio.get_format_from_width(wf.getsampwidth()),  # Lendo o formato do arquivo
             channels=wf.getnchannels(),
             rate=wf.getframerate(),
             output=True
         )
         
-        # Read data in chunks
+        # Ler dados do arquivo e escrever no fluxo
         data = wf.readframes(self.sample_chunk_size)
         
-        # Play the sound by writing the audio data to the stream
         while len(data) > 0:
-            stream.write(data)
-            data = wf.readframes(self.sample_chunk_size)
-            
-        # Close and terminate
+            stream.write(data)  # Reproduzir o áudio
+            data = wf.readframes(self.sample_chunk_size)  # Ler mais dados
+        
+        # Fechar o fluxo e o arquivo
         stream.stop_stream()
         stream.close()
+        wf.close()
         print("Playback finished")
 
-    def cleanup(self):
-        self.pyaudio.terminate()
-
+    def list_audio_devices(self):
+        info = self.pyaudio.get_host_api_info_by_index(0)
+        num_devices = info.get('deviceCount')
+        print("\n ------- Available input devices: --------")
+        for i in range(num_devices):
+            device_info = self.pyaudio.get_device_info_by_host_api_device_index(0, i)
+            if device_info.get('maxInputChannels') > 0:
+                print(f"Device {i}: {device_info.get('name')}")
+        print("-------- -------- --------")
