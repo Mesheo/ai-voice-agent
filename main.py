@@ -1,5 +1,6 @@
 import os
 from record_audio import AudioHandler
+from transcriber import transcribe_audio
 
 def main():
     print("Terminal-based Audio Recorder and Player")
@@ -22,6 +23,11 @@ def main():
                 try:
                     seconds = float(input("Enter recording duration in seconds: "))
                     audio.record(seconds)
+                    print("Iniciando transcrição...")
+                    transcript = transcribe_audio(filename)
+
+                    print("\n📝 Transcrição:")
+                    print(transcript)
                 except ValueError:
                     print("Please enter a valid number of seconds.")
             
